@@ -1,0 +1,62 @@
+# lets plot concentration vs time curve and identify the pattern
+# Selected LOESS (Locally Estimated Scatterplot Smoothing)
+#Lets discuss why this method was choosen
+#LOESS is like a smooth, curvy line drawn through these points, but not just any line—it's like a flexible rubber band that stretches and bends to hug the points closely. 
+#It's called "Locally Estimated" because it looks at nearby points to decide how to bend and shape the line
+
+# Read the data
+pk_data <- read(..........)
+
+# Define a small constant
+small_constant <- 1e-6 # only use if you have predose value which is zero
+# Add the small constant to concentration values to avoid log(0)
+pk_dataa$concentration_adj <- pk_data$Concentration + small_constant
+
+pk_data$log_concentration <- log(pk_data$concentration_adj)
+
+# when we try to fit the model since negative values are there in the log concentration 
+
+# I have changed into zero, this is not goin to affect the overall representation
+# the zeros are predose  
+
+# Filter or change negative values to 0
+pk_data$log_concentration[pk_data$log_concentration < 0] <- 0
+
+# Check for NA or Inf values in the relevant columns after adjustment
+sum(is.na(pk_data$Days.After.C1D1.Dose))
+sum(is.na(pk_data$log_concentration))
+sum(is.infinite(pk_data$Days.After.C1D1.Dose))
+sum(is.infinite(pk_data$log_concentration))
+
+# Fit a LOESS model to the log-transformed data
+loess_fit <- loess(log_concentration ~ Time, data = pk_data)
+
+# Predict smoothed values
+pk_dataa$smoothed <- predict(loess_fit)
+
+# Identify the maximum log concentration value in the data
+max_log_concentration <- max(pk_data$log_concentration)
+
+# Define the breaks for the y-axis
+y_breaks <- seq(-5, max_log_concentration, by = 2)  # Adjust the interval as needed
+
+
+# Create the ggplot object with increased height
+plot <- ggplot(pk_data, aes(x = Time, y = log_concentration)) +
+  geom_point() +  # Plot original data points
+  geom_line(aes(y = smoothed ), color = 'blue', size = 1) +  # Add LOESS smoothed line
+  theme_minimal() +
+  labs(title = "LOESS Smoothed Log-Transformed Concentration vs. Time",
+       x = "Time",
+       y = "Log(Concentration) (pg/mL)")+
+  scale_y_continuous(breaks = y_breaks) + 
+  theme(plot.background = element_rect(fill = "white"),
+        axis.text.x = element_text(color = "black", size = 12),
+        axis.text.y = element_text(color = "black", size = 12),
+        axis.ticks.y = element_line(color = "black"),
+        axis.text.y.right = element_text(color = "black", size = 12, hjust = 1),
+        axis.ticks.y.right = element_blank()
+        )
+
+# Save the plot as a TIFF file with increased height
+ggsave("plot.tiff", plot, width = 12, height = 8, units = "in", dpi = 300)
